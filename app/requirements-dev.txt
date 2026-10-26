@@ -1,0 +1,4 @@
+-r requirements.txt
+pytest==9.1.1
+# Нужен для fastapi.testclient (Starlette теперь использует httpx2 вместо httpx).
+httpx2==2.16.0

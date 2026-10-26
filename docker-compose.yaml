@@ -1,0 +1,16 @@
+services:
+  app1:
+    build: ./app
+    image: items-service:local
+    environment:
+      POD_ID: "1"
+      DATACENTER: "dc1"
+    ports:
+      - "8001:8000"
+    healthcheck:
+      # В python:slim нет curl/wget, поэтому проверяем самим Python.
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=2)"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
