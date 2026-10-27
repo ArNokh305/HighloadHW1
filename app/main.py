@@ -1,12 +1,3 @@
-"""Простой CRUD-сервис с in-memory хранилищем.
-
-Ручки:
-    POST /items         -- создать запись (201)
-    GET  /items/{id}    -- получить запись (404, если нет)
-    PUT  /items/{id}    -- обновить запись (404, если нет)
-    GET  /health        -- служебная, 200 когда сервис готов
-"""
-
 import itertools
 import os
 import threading
@@ -14,33 +5,19 @@ import threading
 from fastapi import FastAPI, HTTPException, status
 from pydantic import BaseModel
 
-from metrics import setup_metrics
-# Пригодятся на этапе метрик: будут лейблами pod / datacenter.
-POD_ID = os.getenv("POD_ID", "unknown")
-DATACENTER = os.getenv("DATACENTER", "unknown")
+from metrics import setup_metrics, POD_ID, DATACENTER
 
 
 class ItemIn(BaseModel):
-    """Тело запроса для создания/обновления."""
-
     name: str
     description: str | None = None
 
 
 class Item(ItemIn):
-    """То, что возвращаем клиенту: тело + id."""
-
     id: int
 
 
 class InMemoryStorage:
-    """Хранилище на словаре.
-
-    Lock нужен потому, что FastAPI выполняет обычные (def, не async def)
-    обработчики в пуле потоков -- несколько запросов могут одновременно
-    читать/писать словарь и счетчик id.
-    """
-
     def __init__(self) -> None:
         self._items: dict[int, Item] = {}
         self._ids = itertools.count(1)
