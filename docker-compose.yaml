@@ -1,15 +1,66 @@
+# Общие настройки для всех экземпляров приложения.
+# x-* -- "extension field": compose его игнорирует, а мы используем как шаблон
+# через YAML-якорь (&app-common) и подставляем ниже через <<: *app-common.
+x-app-common: &app-common
+  build: ./app
+  image: items-service:local
+  healthcheck:
+    # В python:slim нет curl/wget, поэтому проверяем самим Python.
+    test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=2)"]
+    interval: 5s
+    timeout: 3s
+    retries: 5
+    start_period: 5s
+
 services:
   app1:
-    build: ./app
-    image: items-service:local
+    <<: *app-common
     environment:
       POD_ID: "1"
       DATACENTER: "dc1"
     ports:
       - "8001:8000"
+
+  app2:
+    <<: *app-common
+    environment:
+      POD_ID: "2"
+      DATACENTER: "dc2"
+    ports:
+      - "8002:8000"
+
+  prometheus:
+    image: prom/prometheus:v3.15.1
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9090:9090"
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=2)"]
+      # Образ prometheus на busybox -- wget там есть.
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:9090/-/ready"]
       interval: 5s
       timeout: 3s
-      retries: 5
-      start_period: 5s
+      retries: 10
+
+  grafana:
+    image: grafana/grafana:12.4.13
+    environment:
+      # Значения берутся из .env (compose читает его сам).
+      # Синтаксис ${VAR:?msg} -- упасть с понятной ошибкой, если переменной нет.
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:?set GRAFANA_ADMIN_USER in .env}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?set GRAFANA_ADMIN_PASSWORD in .env}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+    ports:
+      - "3000:3000"
+    depends_on:
+      prometheus:
+        condition: service_healthy
+    healthcheck:
+      # В образе grafana есть curl; /api/health отвечает 200, когда Grafana готова.
+      test: ["CMD", "curl", "-fsS", "http://localhost:3000/api/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 10s
