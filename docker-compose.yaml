@@ -18,6 +18,7 @@ services:
     environment:
       POD_ID: "1"
       DATACENTER: "dc1"
+      FAIL_RATE: "0.03"   # доля искусственных 500 (см. maybe_fail в main.py)
     ports:
       - "8001:8000"
 
@@ -26,6 +27,7 @@ services:
     environment:
       POD_ID: "2"
       DATACENTER: "dc2"
+      FAIL_RATE: "0.03"   # доля искусственных 500 (см. maybe_fail в main.py)
     ports:
       - "8002:8000"
 
@@ -81,4 +83,24 @@ services:
       grafana:
         condition: service_healthy
     # Отработал -- и все; не перезапускать.
+    restart: "no"
+
+  # Фоновая нагрузка: стартует после генератора дашборда и работает до остановки стека.
+  load:
+    image: grafana/k6:1.8.2
+    command: ["run", "--quiet", "/scripts/load.js"]
+    volumes:
+      - ./load:/scripts:ro
+    environment:
+      TARGETS: http://app1:8000,http://app2:8000
+      TARGET_RPS: "30"       # суммарно на оба экземпляра
+      RAMP_DURATION: 3m      # плавный разгон до TARGET_RPS
+      K6_NO_USAGE_REPORT: "true"  # не отправлять анонимную статистику в Grafana Labs
+    depends_on:
+      app1:
+        condition: service_healthy
+      app2:
+        condition: service_healthy
+      dashboard-generator:
+        condition: service_completed_successfully
     restart: "no"
