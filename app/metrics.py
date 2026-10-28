@@ -23,7 +23,7 @@ REQUESTS_TOTAL = Counter(
     ['method', 'status', 'datacenter', 'pod_id', 'route'],
 )
 
-EXCLUDED_PATHS = {"/health", "/metrics", "/openapi.json", "/docs", "/redocs",
+EXCLUDED_PATHS = {"/health", "/metrics", "/openapi.json", "/docs", "/redoc",
                   "/docs/oauth2-redirect", "/favicon.ico", "/handlers"}
 
 
