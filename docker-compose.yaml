@@ -1,12 +1,8 @@
-# Общие настройки для всех экземпляров приложения.
-# x-* -- "extension field": compose его игнорирует, а мы используем как шаблон
-# через YAML-якорь (&app-common) и подставляем ниже через <<: *app-common.
 x-app-common: &app-common
   build: ./app
   image: items-service:local
   healthcheck:
-    # В python:slim нет curl/wget, поэтому проверяем самим Python.
-    test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=2)"]
+    test: [ "CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=2)" ]
     interval: 5s
     timeout: 3s
     retries: 5
@@ -18,7 +14,7 @@ services:
     environment:
       POD_ID: "1"
       DATACENTER: "dc1"
-      FAIL_RATE: "0.03"   # доля искусственных 500 (см. maybe_fail в main.py)
+      FAIL_RATE: "0.03"
     ports:
       - "8001:8000"
 
@@ -27,7 +23,7 @@ services:
     environment:
       POD_ID: "2"
       DATACENTER: "dc2"
-      FAIL_RATE: "0.03"   # доля искусственных 500 (см. maybe_fail в main.py)
+      FAIL_RATE: "0.03"
     ports:
       - "8002:8000"
 
@@ -38,8 +34,7 @@ services:
     ports:
       - "9090:9090"
     healthcheck:
-      # Образ prometheus на busybox -- wget там есть.
-      test: ["CMD", "wget", "-q", "--spider", "http://localhost:9090/-/ready"]
+      test: [ "CMD", "wget", "-q", "--spider", "http://localhost:9090/-/ready" ]
       interval: 5s
       timeout: 3s
       retries: 10
@@ -47,8 +42,6 @@ services:
   grafana:
     image: grafana/grafana:12.4.13
     environment:
-      # Значения берутся из .env (compose читает его сам).
-      # Синтаксис ${VAR:?msg} -- упасть с понятной ошибкой, если переменной нет.
       GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:?set GRAFANA_ADMIN_USER in .env}
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?set GRAFANA_ADMIN_PASSWORD in .env}
       GF_USERS_ALLOW_SIGN_UP: "false"
@@ -60,14 +53,12 @@ services:
       prometheus:
         condition: service_healthy
     healthcheck:
-      # В образе grafana есть curl; /api/health отвечает 200, когда Grafana готова.
-      test: ["CMD", "curl", "-fsS", "http://localhost:3000/api/health"]
+      test: [ "CMD", "curl", "-fsS", "http://localhost:3000/api/health" ]
       interval: 5s
       timeout: 3s
       retries: 20
       start_period: 10s
 
-  # Одноразовый сервис: строит дашборд по /handlers и завершается.
   dashboard-generator:
     build: ./generator
     environment:
@@ -82,20 +73,18 @@ services:
         condition: service_healthy
       grafana:
         condition: service_healthy
-    # Отработал -- и все; не перезапускать.
     restart: "no"
 
-  # Фоновая нагрузка: стартует после генератора дашборда и работает до остановки стека.
   load:
     image: grafana/k6:1.8.2
-    command: ["run", "--quiet", "/scripts/load.js"]
+    command: [ "run", "--quiet", "/scripts/load.js" ]
     volumes:
       - ./load:/scripts:ro
     environment:
       TARGETS: http://app1:8000,http://app2:8000
-      TARGET_RPS: "30"       # суммарно на оба экземпляра
-      RAMP_DURATION: 3m      # плавный разгон до TARGET_RPS
-      K6_NO_USAGE_REPORT: "true"  # не отправлять анонимную статистику в Grafana Labs
+      TARGET_RPS: "30"
+      RAMP_DURATION: 3m
+      K6_NO_USAGE_REPORT: "true"
     depends_on:
       app1:
         condition: service_healthy

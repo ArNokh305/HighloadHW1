@@ -1,14 +1,3 @@
-"""Спецификация build_dashboard: требования задания, записанные как тесты.
-
-Пока build_dashboard -- заглушка, большинство тестов красные. Это нормально:
-они показывают, что осталось сделать. Тесты не привязаны к конкретной
-раскладке или именам вспомогательных функций -- проверяется только результат.
-
-Запуск (из папки generator/):
-    pip install -r requirements-dev.txt
-    pytest -v
-"""
-
 import re
 
 import pytest
@@ -21,17 +10,13 @@ HANDLERS = [
 ]
 
 
-# ---------- вспомогательные функции для тестов ----------
-
 def all_panels(dashboard):
-    """Все панели, включая вложенные в свернутые row (у них свои panels)."""
     for p in dashboard.get("panels", []):
         yield p
         yield from p.get("panels", [])
 
 
 def data_panels(dashboard):
-    """Панели с данными (без строк-заголовков)."""
     return [p for p in all_panels(dashboard) if p.get("type") != "row"]
 
 
@@ -40,7 +25,6 @@ def exprs(panel):
 
 
 def panels_for(dashboard, handler):
-    """Панели, все запросы которых относятся к данной ручке."""
     m = f'method="{handler["method"]}"'
     r = f'route="{handler["route"]}"'
     return [
@@ -61,19 +45,14 @@ def dashboard():
     return build_dashboard(HANDLERS)
 
 
-# ---------- общие свойства дашборда ----------
-
 def test_not_editable(dashboard):
     assert dashboard["editable"] is False
 
 
 def test_fixed_uid(dashboard):
-    # Фиксированный uid + overwrite=True -> повторный запуск перезаписывает дашборд.
     assert dashboard["uid"]
     assert build_dashboard(HANDLERS)["uid"] == dashboard["uid"]
 
-
-# ---------- селекторы ----------
 
 @pytest.mark.parametrize("name", ["datacenter", "pod"])
 def test_variable_multi_and_all(dashboard, name):
@@ -88,13 +67,10 @@ def test_variable_multi_and_all(dashboard, name):
 
 
 def test_pod_variable_is_chained_to_datacenter(dashboard):
-    """Рекомендация, а не требование: при выборе dc1 в списке подов только поды dc1."""
     query = variable(dashboard, "pod").get("query")
     query = query.get("query", "") if isinstance(query, dict) else (query or "")
     assert "$datacenter" in query
 
-
-# ---------- панели по ручкам ----------
 
 @pytest.mark.parametrize("handler", HANDLERS,
                          ids=lambda h: f'{h["method"]} {h["route"]}')
@@ -118,7 +94,6 @@ def test_each_handler_has_latency_rps_errors(dashboard, handler):
 
 
 def test_new_handler_appears_without_code_changes():
-    """Главное требование: новая ручка -> новые панели, без изменений генератора."""
     extra = {"method": "DELETE", "route": "/items/{item_id}"}
     dashboard = build_dashboard(HANDLERS + [extra])
     assert len(panels_for(dashboard, extra)) >= 3
@@ -135,8 +110,6 @@ def test_errors_panel_groups_by_status(dashboard):
                    in error_exprs), \
             f"ошибки {handler} должны фильтроваться по 4xx и 5xx"
 
-
-# ---------- корректность PromQL ----------
 
 def test_every_expr_filters_by_selected_datacenter_and_pod(dashboard):
     for p in data_panels(dashboard):
@@ -164,8 +137,6 @@ def test_quantiles_over_aggregated_buckets(dashboard):
                     e), \
                     f"нужен histogram_quantile(q, sum by (le) (rate(..._bucket...))): {e}"
 
-
-# ---------- оформление ----------
 
 def test_panels_use_provisioned_datasource(dashboard):
     for p in data_panels(dashboard):

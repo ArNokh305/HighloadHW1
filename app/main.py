@@ -1,7 +1,7 @@
 import itertools
 import os
-import threading
 import random
+import threading
 
 from fastapi import FastAPI, HTTPException, status, Depends
 from pydantic import BaseModel
@@ -49,6 +49,7 @@ storage = InMemoryStorage()
 
 FAIL_RATE = float(os.getenv("FAIL_RATE", 0.0))
 
+
 def inject_failure_dependency():
     if random.random() < FAIL_RATE:
         raise HTTPException(
@@ -57,12 +58,14 @@ def inject_failure_dependency():
         )
 
 
-@app.post("/items", status_code=status.HTTP_201_CREATED, response_model=Item,dependencies=[Depends(inject_failure_dependency)])
+@app.post("/items", status_code=status.HTTP_201_CREATED, response_model=Item,
+          dependencies=[Depends(inject_failure_dependency)])
 def create_item(data: ItemIn) -> Item:
     return storage.create(data)
 
 
-@app.get("/items/{item_id}", response_model=Item,dependencies=[Depends(inject_failure_dependency)])
+@app.get("/items/{item_id}", response_model=Item,
+         dependencies=[Depends(inject_failure_dependency)])
 def get_item(item_id: int) -> Item:
     item = storage.get(item_id)
     if item is None:
@@ -70,7 +73,8 @@ def get_item(item_id: int) -> Item:
     return item
 
 
-@app.put("/items/{item_id}", response_model=Item,dependencies=[Depends(inject_failure_dependency)])
+@app.put("/items/{item_id}", response_model=Item,
+         dependencies=[Depends(inject_failure_dependency)])
 def update_item(item_id: int, data: ItemIn) -> Item:
     item = storage.update(item_id, data)
     if item is None:
